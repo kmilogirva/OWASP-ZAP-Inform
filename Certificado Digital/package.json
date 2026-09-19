@@ -1,0 +1,9 @@
+{
+  "name": "certificado-digital-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Laboratorio de cifrado simetrico/asimetrico y certificados digitales SSL/TLS",
+  "scripts": {
+    "start": "node server/server.js"
+  }
+}

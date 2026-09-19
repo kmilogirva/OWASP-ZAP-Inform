@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Criptografía y Certificados Digitales — Laboratorio</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__inner">
+    <div class="brand">
+      <span class="brand__lock">🔒</span>
+      <span class="brand__text">Criptografía &amp; Certificados<span class="brand__dot">.</span>lab</span>
+    </div>
+    <nav class="nav">
+      <a href="#simetrico">Simétrico</a>
+      <a href="#asimetrico">Asimétrico</a>
+      <a href="#certificados">Certificados TLS</a>
+      <a href="#laboratorio">Laboratorio</a>
+    </nav>
+    <div class="conn-badge" id="connBadge">
+      <span class="conn-badge__dot"></span>
+      <span class="conn-badge__text">comprobando conexión…</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero__inner">
+      <p class="hero__kicker">Universidad Tecnológica · Seguridad del Software</p>
+      <h1>No es una lectura sobre criptografía.<br>Es un laboratorio que la ejecuta.</h1>
+      <p class="hero__lead">
+        Cada demo de esta página corre criptografía real en tu navegador con la
+        <code>Web Crypto API</code> — no animaciones que simulan candados. Al final,
+        vas a levantar un servidor con HTTPS real, usando un certificado que emitiste tú mismo,
+        y vas a comparar sus campos con los que expone esta misma página.
+      </p>
+      <div class="hero__actions">
+        <a href="#simetrico" class="btn btn--primary">Empezar por el cifrado simétrico</a>
+        <a href="#laboratorio" class="btn btn--ghost">Ir directo al laboratorio</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIMÉTRICO -->
+  <section id="simetrico" class="section">
+    <div class="section__inner">
+      <span class="section__tag">01 · Confidencialidad con una sola llave</span>
+      <h2>Cifrado simétrico: AES-256-GCM</h2>
+
+      <div class="grid-2">
+        <div class="prose">
+          <p>
+            En el cifrado simétrico, <strong>la misma llave</strong> cifra y descifra.
+            Es rápido y barato en cómputo — por eso es el que carga el peso real de
+            cualquier conexión TLS una vez que la conexión ya se estableció. El problema
+            que no resuelve por sí solo es la <strong>distribución de la llave</strong>:
+            si dos partes nunca se vieron antes, ¿cómo acuerdan un secreto compartido sin que
+            un tercero que escucha el tráfico también lo obtenga? Esa pregunta es la que
+            responde el cifrado asimétrico en la siguiente sección.
+          </p>
+          <p>
+            Este laboratorio usa <strong>AES-GCM</strong> (Galois/Counter Mode), un modo
+            <em>autenticado</em>: no solo cifra, también detecta si el texto cifrado fue
+            alterado un solo bit. La llave no sale directo de tu contraseña — se deriva con
+            <strong>PBKDF2</strong> (250.000 iteraciones + salt aleatorio) para que un atacante
+            no pueda simplemente probar contraseñas comunes contra el cifrado a alta velocidad.
+          </p>
+          <ul class="fact-list">
+            <li><strong>Tamaño de llave:</strong> 256 bits</li>
+            <li><strong>IV (nonce):</strong> 96 bits, aleatorio, nunca se reutiliza con la misma llave</li>
+            <li><strong>Tag de autenticación:</strong> 128 bits, va pegado al final del cifrado</li>
+            <li><strong>Riesgo real:</strong> reutilizar un IV con AES-GCM bajo la misma llave rompe la confidencialidad del mensaje</li>
+          </ul>
+        </div>
+
+        <div class="demo-card">
+          <h3>Demo funcional</h3>
+          <label class="field">
+            <span>Contraseña (se deriva la llave con PBKDF2)</span>
+            <input type="text" id="symPass" placeholder="ej. correcto-caballo-batería-grapa" value="laboratorio-seguro-2024">
+          </label>
+          <label class="field">
+            <span>Texto plano</span>
+            <textarea id="symPlain" rows="3">Este mensaje viaja cifrado con AES-256-GCM.</textarea>
+          </label>
+          <div class="btn-row">
+            <button class="btn btn--primary" id="symEncryptBtn">Cifrar</button>
+            <button class="btn btn--ghost" id="symDecryptBtn" disabled>Descifrar</button>
+            <button class="btn btn--danger" id="symTamperBtn" disabled>Alterar 1 byte y reintentar</button>
+          </div>
+
+          <div class="output" id="symOutput" hidden>
+            <div class="output__row"><span>Salt</span><code id="symSalt"></code></div>
+            <div class="output__row"><span>IV</span><code id="symIv"></code></div>
+            <div class="output__row"><span>Cifrado (Base64)</span><code id="symCipher" class="code-block"></code></div>
+            <div class="output__row"><span>Resultado</span><code id="symResult" class="result"></code></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ASIMÉTRICO -->
+  <section id="asimetrico" class="section section--alt">
+    <div class="section__inner">
+      <span class="section__tag">02 · Dos llaves, dos usos distintos</span>
+      <h2>Cifrado asimétrico: RSA-OAEP</h2>
+
+      <div class="grid-2">
+        <div class="prose">
+          <p>
+            Acá hay <strong>dos llaves matemáticamente relacionadas</strong>: lo que cifra
+            una, solo lo descifra la otra. Si cifras con la <strong>llave pública</strong> de
+            alguien, solo su <strong>llave privada</strong> puede descifrar — eso resuelve
+            confidencialidad sin haber compartido nunca un secreto previo. Si en cambio
+            <strong>firmas</strong> con tu llave privada, cualquiera con tu llave pública
+            puede verificar que el mensaje es tuyo y no fue alterado — eso es lo que hace
+            una Autoridad Certificadora cuando firma un certificado (sección siguiente).
+          </p>
+          <p>
+            El costo: RSA es órdenes de magnitud más lento que AES y <strong>solo puede
+            cifrar mensajes pequeños</strong> (con RSA-2048 y OAEP-SHA256, el límite ronda
+            190 bytes). Por eso ningún protocolo real usa RSA para cifrar datos en bruto:
+            TLS usa asimétrico solo para <strong>autenticar y acordar una llave simétrica</strong>,
+            y esa llave simétrica es la que cifra todo el tráfico. Esto se llama
+            <strong>cifrado híbrido</strong>.
+          </p>
+          <ul class="fact-list">
+            <li><strong>Algoritmo:</strong> RSA-OAEP, 2048 bits, hash SHA-256</li>
+            <li><strong>Límite de mensaje:</strong> ≈ 190 bytes para RSA-2048/OAEP-SHA256</li>
+            <li><strong>Uso real en TLS:</strong> intercambio de llaves (hoy en día casi siempre vía ECDHE, no RSA directo) y verificación de firmas del certificado</li>
+          </ul>
+        </div>
+
+        <div class="demo-card">
+          <h3>Demo funcional</h3>
+          <div class="btn-row">
+            <button class="btn btn--primary" id="asymGenBtn">Generar par de llaves RSA-2048</button>
+          </div>
+          <div id="asymKeys" hidden>
+            <label class="field">
+              <span>Llave pública (SPKI, PEM)</span>
+              <textarea class="mono" id="asymPub" rows="4" readonly></textarea>
+            </label>
+            <label class="field">
+              <span>Llave privada (PKCS8, PEM) <em>— solo para fines del laboratorio, nunca la compartas en la vida real</em></span>
+              <textarea class="mono" id="asymPriv" rows="4" readonly></textarea>
+            </label>
+            <label class="field">
+              <span>Mensaje (máx. ~190 bytes)</span>
+              <input type="text" id="asymPlain" value="Hola desde el laboratorio de criptografía">
+            </label>
+            <div class="btn-row">
+              <button class="btn btn--primary" id="asymEncryptBtn">Cifrar con llave pública</button>
+              <button class="btn btn--ghost" id="asymDecryptBtn" disabled>Descifrar con llave privada</button>
+            </div>
+            <div class="output" id="asymOutput" hidden>
+              <div class="output__row"><span>Cifrado (Base64)</span><code id="asymCipher" class="code-block"></code></div>
+              <div class="output__row"><span>Resultado</span><code id="asymResult" class="result"></code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CERTIFICADOS -->
+  <section id="certificados" class="section">
+    <div class="section__inner">
+      <span class="section__tag">03 · La confianza necesita un tercero</span>
+      <h2>Certificados digitales, SSL/TLS y la cadena de confianza</h2>
+
+      <div class="prose prose--wide">
+        <p>
+          Un certificado X.509 responde una pregunta que el cifrado asimétrico por sí solo
+          no responde: <strong>¿esta llave pública realmente pertenece a quien dice ser?</strong>
+          Cualquiera puede generar un par de llaves y decir "soy banco.com". Un certificado es,
+          en esencia, una <strong>Autoridad Certificadora (CA) firmando</strong> con su llave
+          privada un documento que dice "esta llave pública pertenece a este dominio". Es
+          exactamente el mismo mecanismo de firma que probaste en la sección anterior,
+          aplicado por un tercero en el que el navegador ya confía.
+        </p>
+
+        <div class="callout-grid">
+          <div class="callout">
+            <h4>Cadena de confianza</h4>
+            <p>Root CA (confiada por el sistema operativo/navegador) firma una CA intermedia,
+            que firma tu certificado hoja. El navegador valida cada firma hacia arriba hasta
+            llegar a una raíz en la que ya confía.</p>
+          </div>
+          <div class="callout">
+            <h4>DV / OV / EV</h4>
+            <p>Domain Validated solo prueba control del dominio (lo que emite Let's Encrypt
+            en minutos vía ACME). Organization/Extended Validated exigen verificar la entidad
+            legal. Dato real: los navegadores modernos ya casi no distinguen EV visualmente
+            en la barra de direcciones — la UI especial de "candado verde + nombre de empresa" prácticamente desapareció.</p>
+          </div>
+          <div class="callout">
+            <h4>Revocación</h4>
+            <p>Si una llave privada se filtra, el certificado se revoca antes de su expiración
+            vía <strong>CRL</strong> (lista de revocación) u <strong>OCSP</strong> (consulta en
+            vivo, hoy usualmente vía OCSP stapling para no filtrar a la CA qué sitios visitas).</p>
+          </div>
+          <div class="callout">
+            <h4>Forward secrecy</h4>
+            <p>TLS moderno negocia la llave simétrica con <strong>ECDHE</strong> (Diffie-Hellman
+            efímero sobre curvas elípticas), no cifrándola directo con RSA. Así, aunque la llave
+            privada del certificado se filtre después, el tráfico grabado previamente sigue sin poder descifrarse.</p>
+          </div>
+        </div>
+
+        <h3>El handshake, paso a paso</h3>
+        <p class="prose__note">Este es el flujo simplificado de TLS 1.3. Avanza los pasos para ver qué se negocia en cada uno.</p>
+      </div>
+
+      <div class="handshake">
+        <div class="handshake__steps" id="handshakeSteps"></div>
+        <div class="handshake__detail" id="handshakeDetail"></div>
+        <div class="btn-row">
+          <button class="btn btn--ghost" id="hsPrevBtn">← Anterior</button>
+          <button class="btn btn--primary" id="hsNextBtn">Siguiente →</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="demo-card">
+          <h3>Mini-PKI: firma tú un certificado</h3>
+          <p class="demo-card__hint">
+            Genera una "CA" y un "servidor", firma la llave pública del servidor con la
+            llave privada de la CA (ECDSA P-256) — eso ES un certificado, simplificado a
+            su idea central — y verifica la firma. Después altera un campo y observa que
+            la verificación falla: esa es la garantía de integridad que protege a un
+            certificado real de ser falsificado.
+          </p>
+          <div class="btn-row">
+            <button class="btn btn--primary" id="pkiGenBtn">1. Generar CA y servidor</button>
+            <button class="btn btn--ghost" id="pkiSignBtn" disabled>2. CA firma el certificado del servidor</button>
+            <button class="btn btn--ghost" id="pkiVerifyBtn" disabled>3. Verificar firma</button>
+            <button class="btn btn--danger" id="pkiTamperBtn" disabled>4. Alterar el dominio y re-verificar</button>
+          </div>
+          <pre class="output-pre" id="pkiOutput" hidden></pre>
+        </div>
+
+        <div class="demo-card">
+          <h3>Inspector de certificado real</h3>
+          <p class="demo-card__hint">
+            Solo funciona cuando esta página se sirve por HTTPS desde el servidor Node del
+            laboratorio (sección siguiente). El servidor lee el certificado que está usando
+            ahora mismo y expone sus campos reales aquí.
+          </p>
+          <button class="btn btn--primary" id="certInspectBtn">Consultar certificado activo</button>
+          <div id="certInspectOutput"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LABORATORIO -->
+  <section id="laboratorio" class="section section--alt">
+    <div class="section__inner">
+      <span class="section__tag">04 · Aplica un certificado real a esta página</span>
+      <h2>Laboratorio: sirve esta página por HTTPS con tu propio certificado</h2>
+
+      <div class="prose prose--wide">
+        <p>
+          Vas a generar un certificado con <strong>mkcert</strong> (una CA local que instala
+          en tu sistema y navegador, así que el certificado resultante es confiado <em>solo
+          en tu máquina</em> — no sirve para producción, pero se comporta exactamente como uno
+          real: candado verde, sin advertencias) y vas a levantar un servidor Node.js mínimo
+          que lo usa para servir estos mismos archivos por HTTPS.
+        </p>
+      </div>
+
+      <ol class="lab-steps">
+        <li>
+          <h4>Instalar mkcert</h4>
+          <p>Windows (con Chocolatey):</p>
+          <pre class="cmd">choco install mkcert</pre>
+          <p>o con Scoop:</p>
+          <pre class="cmd">scoop bucket add extras
+scoop install mkcert</pre>
+        </li>
+        <li>
+          <h4>Instalar la CA local de mkcert</h4>
+          <p>Esto agrega una CA raíz de confianza solo en tu equipo (en el almacén de certificados de Windows y/o en tu navegador):</p>
+          <pre class="cmd">mkcert -install</pre>
+        </li>
+        <li>
+          <h4>Generar el certificado para localhost</h4>
+          <p>Desde la carpeta del proyecto:</p>
+          <pre class="cmd">cd server
+mkdir certs
+mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost.pem localhost 127.0.0.1 ::1</pre>
+        </li>
+        <li>
+          <h4>Levantar el servidor</h4>
+          <pre class="cmd">cd ..
+npm start</pre>
+          <p>Esto sirve la página en <code>https://localhost:8443</code> y redirige <code>http://localhost:8080</code> hacia HTTPS.</p>
+        </li>
+        <li>
+          <h4>Verificar</h4>
+          <p>Abre <code>https://localhost:8443</code>, confirma el candado sin advertencias, y usa
+          el <strong>Inspector de certificado real</strong> de la sección anterior para ver los
+          campos que tu servidor está exponiendo. Compáralos con los que muestra el navegador
+          al hacer clic en el candado → "La conexión es segura" → "El certificado es válido".</p>
+        </li>
+        <li>
+          <h4>Opcional: compara con un certificado autofirmado "a mano"</h4>
+          <p>Genera uno con OpenSSL sin una CA de confianza detrás, y observa que el navegador
+          sí muestra advertencia — la diferencia no es técnica en el cifrado, es que ninguna
+          CA en la que el navegador confía firmó esa llave:</p>
+          <pre class="cmd">openssl req -x509 -newkey rsa:2048 -nodes -keyout server/certs/adhoc-key.pem -out server/certs/adhoc.pem -days 365 -subj "/CN=localhost"</pre>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>Laboratorio de Seguridad del Software · Cifrado simétrico, asimétrico y certificados digitales.</p>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
